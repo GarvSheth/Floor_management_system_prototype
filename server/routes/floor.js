@@ -2,6 +2,7 @@ import express from "express";
 const router = express.Router();
 import Floor from "../models/floor.js";
 import Version from "../models/version.js";
+import versioningService from "../services/versionService.js";
 const app = express();
 
 app.use(express.json());
@@ -36,35 +37,40 @@ router.put("/:floorId/desks/:deskId", async (req, res) => {
     if (!desk) return res.status(404).json({ error: "Desk not found" });
 
     // Store previous state
-    const prev = { deskId: desk.deskId, employee: desk.employee };
+    const prev = { deskId: desk.deskId, employee: desk.employee, status: desk.status };
 
     // ASSIGN DESK
     if (employee) {
       if (desk.employee) return res.status(400).json({ error: "Already Occupied" });
       desk.employee = employee;
+      desk.status = "Occupied"
 
     // UNASSIGN DESK
     } else {
       if (!desk.employee) return res.status(400).json({ error: "Desk is already empty" });
       desk.employee = null;
+      desk.status = "Available"
     }
 
     await floor.save();
 
     try {
-      await Version.create({
-        resourceType: "DESK",
-        floorId: floor._id,
-        changedBy: admin,
-        action: employee ? "ASSIGN_DESK" : "VACATE_DESK",
-        previousState: prev,
-        newState: { deskId, employee },
-      });
-      console.log("Version created successfully");
+      const commitData = {
+        author: { id: admin, name: admin },
+        message: `Desk ${deskId} was ${employee ? 'assigned to ' + employee : 'vacated'}.`,
+        changes: [{
+            floor: floorId,
+            entityId: deskId,
+            field: "employee",
+            oldValue: prev.employee,
+            newValue: employee,
+        }]
+      };
+      await versioningService.createCommit(commitData);
     } catch (err) {
       console.error("Version creation failed:", err.message);
+      // Decide if you want to revert the floor.save() or just log the error
     }
-
     res.json({ message: "Desk updated successfully", floor });
   } catch (err) {
     res.status(500).json({ error: err.message });

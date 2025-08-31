@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 
 const deskSchema = new mongoose.Schema({
   deskId: String,
-  employee: { type: String, default: null }, // employee assigned to desk
+  status: String,
+  employee: { type: String, default: null }, 
 });
 
 const meetingRoomSchema = new mongoose.Schema({

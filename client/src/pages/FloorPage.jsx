@@ -11,6 +11,7 @@ const FloorPage = () => {
   const [selectedDesk, setSelectedDesk] = useState(null);
   const [employeeName, setEmployeeName] = useState("");
   const [isUnassign, setIsUnassign] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   // Fetch floor data
   useEffect(() => {
@@ -45,11 +46,12 @@ const FloorPage = () => {
 
   // Assign desk
   const assignDesk = async () => {
-    console.log("Assigned");
-    if (!employeeName.trim()) return;
-    else{
-      console.log(employeeName);
+    if (!employeeName.trim()) {
+      setErrorMsg("*must add a name"); 
+      return;
     }
+
+    setErrorMsg("");
     try {
       const res = await fetch(
         `http://localhost:3000/floor/${floorId}/desks/${selectedDesk}`,
@@ -183,11 +185,12 @@ const FloorPage = () => {
                 </h3>
                 <input
                   type="text"
-                  className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
+                  className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
                   placeholder="Enter employee name"
                   value={employeeName}
                   onChange={(e) => setEmployeeName(e.target.value)}
                 />
+                {errorMsg && <p className="text-red-500 text-sm mb-2">{errorMsg}</p>}
                 <div className="flex justify-end gap-3">
                   <button
                     className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
