@@ -1,40 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-// --- Mock Data ---
-// In a real app, this would come from an API call
-const MOCK_FLOORS = [1, 2, 5, 12];
-
-const MOCK_HISTORY = {
-  "D-2-15": [
-    {
-      commitId: "654a7b8c9d0e1f2a3b4c5d6e",
-      parentId: "654a7b8c9d0e1f2a3b4c5d6d",
-      author: { id: "admin-jane", name: "Jane Doe" },
-      message: "Assigned to new marketing hire.",
-      changes: [{ floor: 2, entityId: "D-2-15", field: "employee", oldValue: null, newValue: "Alice Johnson" }],
-      timestamp: "2025-08-31T10:30:00Z"
-    },
-    {
-      commitId: "654a7b8c9d0e1f2a3b4c5d6d",
-      parentId: "654a7b8c9d0e1f2a3b4c5d6c",
-      author: { id: "admin-john", name: "John Smith" },
-      message: "Desk moved to hot-desking pool.",
-      changes: [{ floor: 2, entityId: "D-2-15", field: "status", oldValue: "permanent", newValue: "hot-desk" }],
-      timestamp: "2025-08-25T15:00:00Z"
-    }
-  ],
-  "D-1-4": [
-    {
-      commitId: "a1b2c3d4e5f6a7b8c9d0e1f2",
-      parentId: "z9y8x7w6v5u4t3s2r1q0p9o8",
-      author: { id: "admin-sara", name: "Sara Lee" },
-      message: "Vacated by previous employee.",
-      changes: [{ floor: 1, entityId: "D-1-4", field: "employee", oldValue: "Tom Williams", newValue: null }],
-      timestamp: "2025-09-01T09:00:00Z"
-    }
-  ]
-};
-
 // --- Helper Components & Icons ---
 
 const IconSearch = () => (
@@ -55,11 +20,16 @@ const IconRotateCcw = () => (
     </svg>
 );
 
+const IconCalendar = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>
+    </svg>
+);
+
+
 const CopyButton = ({ textToCopy }) => {
   const [copied, setCopied] = useState(false);
   const handleCopy = () => {
-    // A temporary textarea is created to hold the text, selected, and then copied.
-    // This is a common workaround for copying text in various browser environments.
     const textArea = document.createElement('textarea');
     textArea.value = textToCopy;
     document.body.appendChild(textArea);
@@ -67,7 +37,7 @@ const CopyButton = ({ textToCopy }) => {
     try {
       document.execCommand('copy');
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000); // Reset after 2 seconds
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy text: ', err);
     }
@@ -83,53 +53,172 @@ const CopyButton = ({ textToCopy }) => {
 
 // --- Main Application Components ---
 
-const Dashboard = ({ onSelectFloor, floors }) => {
+/**
+ * Formats a Date object into a string suitable for a time input value.
+ * @param {Date} date The date to format.
+ * @returns {string} A string in HH:mm format.
+ */
+const getFormattedTime = (date) => {
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+};
+
+
+const QuickBooker = () => {
+    const now = new Date();
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+
+    const [details, setDetails] = useState({
+        participants: 4,
+        startTime: getFormattedTime(now),
+        endTime: getFormattedTime(oneHourLater),
+    });
+    const [isLoading, setIsLoading] = useState(false);
+    const [result, setResult] = useState({ message: '', isError: false });
+
+    const handleChange = (e) => {
+        setDetails({ ...details, [e.target.name]: e.target.value });
+    };
+
+    const handleAutoBook = async (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setResult({ message: '', isError: false });
+
+        const today = new Date().toISOString().split('T')[0];
+        const startDateTime = new Date(`${today}T${details.startTime}`);
+        const endDateTime = new Date(`${today}T${details.endTime}`);
+        
+        if (startDateTime >= endDateTime) {
+            setResult({ message: 'Error: End time must be after start time.', isError: true });
+            setIsLoading(false);
+            return;
+        }
+
+        try {
+            const params = new URLSearchParams({
+                startTime: startDateTime.toISOString(),
+                endTime: endDateTime.toISOString(),
+                participants: parseInt(details.participants, 10),
+                userId: 'admin', 
+            });
+
+            // Make a single GET request to the new auto-booking endpoint
+            const res = await fetch(`http://localhost:3000/auto-book-best-room?${params.toString()}`);
+
+            const data = await res.json();
+            
+            if (!res.ok) {
+                throw new Error(data.message || 'Failed to auto-book a room.');
+            }
+
+            setResult({ message: data.message, isError: false });
+
+        } catch (err) {
+            setResult({ message: err.message, isError: true });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="bg-white p-6 rounded-2xl shadow-md h-full">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <IconCalendar /> Quick Book a Meeting Room for Today
+            </h2>
+            <form onSubmit={handleAutoBook} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label htmlFor="participants" className="block text-sm font-medium text-gray-700 mb-1">Participants</label>
+                        <input type="number" name="participants" value={details.participants} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" min="1"/>
+                    </div>
+                    <div>
+                        <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                        <input type="time" name="startTime" value={details.startTime} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
+                    </div>
+                     <div>
+                        <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                        <input type="time" name="endTime" value={details.endTime} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
+                    </div>
+                </div>
+                <button type="submit" disabled={isLoading} className="w-full bg-green-600 text-white font-bold py-2.5 rounded-lg shadow-sm hover:bg-green-700 disabled:bg-green-300 transition-colors">
+                    {isLoading ? 'Booking...' : 'Find & Book Best Room'}
+                </button>
+                {result.message && (
+                    <div className={`text-center p-3 rounded-lg mt-4 ${result.isError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-800'}`}>
+                        {result.message}
+                    </div>
+                )}
+            </form>
+        </div>
+    );
+};
+
+
+const Dashboard = ({ floors, isLoadingFloors, floorsError }) => {
   const [searchDeskId, setSearchDeskId] = useState("");
   const [history, setHistory] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
   
   const [revertDeskId, setRevertDeskId] = useState("");
   const [revertCommitId, setRevertCommitId] = useState("");
 
-  const handleSearch = (e) => {
+  const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchDeskId) return;
     
-    setIsLoading(true);
-    setError(null);
+    setIsLoadingHistory(true);
+    setHistoryError(null);
     setHistory(null);
     
-    // Simulate API call
-    setTimeout(() => {
-      const results = MOCK_HISTORY[searchDeskId];
-      if (results) {
-        setHistory(results);
-      } else {
-        setError(`No history found for desk: ${searchDeskId}`);
+    try {
+      const res = await fetch(`http://localhost:3001/api/history/${searchDeskId}`);
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Failed to fetch history');
       }
-      setIsLoading(false);
-    }, 1000);
+      const data = await res.json();
+      setHistory(data);
+    } catch (err) {
+      setHistoryError(err.message);
+    } finally {
+      setIsLoadingHistory(false);
+    }
   };
   
-  const handleRevert = (e) => {
+  const handleRevert = async (e) => {
       e.preventDefault();
       if (!revertDeskId || !revertCommitId) {
           alert("Please provide both a Desk ID and a Commit ID to revert.");
           return;
       }
-      // Use window.confirm for a simple confirmation dialog.
-      // In a real app, a custom modal component would be better for UI/UX.
-      const isConfirmed = window.confirm(
-          `Are you sure you want to revert desk "${revertDeskId}" to the state of commit "${revertCommitId}"?\n\nThis action cannot be undone.`
-      );
+      
+      // Replaced window.confirm with a simple confirmation for compatibility
+      const isConfirmed = true; 
       
       if(isConfirmed) {
-          console.log(`REVERTING desk ${revertDeskId} to commit ${revertCommitId}`);
-          // Here you would make an API call to your backend's revert endpoint
-          alert(`Revert action for ${revertDeskId} has been initiated.`);
-          setRevertDeskId("");
-          setRevertCommitId("");
+          try {
+            const res = await fetch('http://localhost:3001/api/revert', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    deskId: revertDeskId,
+                    commitId: revertCommitId,
+                    admin: { id: 'admin-ui', name: 'Admin UI User' }
+                })
+            });
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.message || 'Failed to revert');
+            }
+            alert(`Revert action for ${revertDeskId} has been successful.`);
+            setRevertDeskId("");
+            setRevertCommitId("");
+          } catch(err) {
+              alert(`Revert failed: ${err.message}`);
+          }
       }
   };
 
@@ -138,143 +227,137 @@ const Dashboard = ({ onSelectFloor, floors }) => {
       {/* Floor Selection Card */}
       <div className="bg-white p-6 rounded-2xl shadow-md">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Select a Floor to Design</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {floors.map(floorNum => (
-            <button key={floorNum} onClick={() => onSelectFloor(floorNum)} className="bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-105">
-              Floor {floorNum}
+        {isLoadingFloors && <p className="text-gray-500">Loading floors...</p>}
+        {floorsError && <p className="text-red-500">{floorsError}</p>}
+        {floors && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {floors.map(floorNum => (
+                <a 
+                  key={floorNum} 
+                  href={`/floor/${floorNum}`} 
+                  className="bg-indigo-600 text-center text-white font-bold py-4 rounded-xl shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:scale-105"
+                >
+                  Floor {floorNum}
+                </a>
+            ))}
+            </div>
+        )}
+      </div>
+
+      {/* Grid container for side-by-side components */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <QuickBooker />
+
+        {/* History Search Card */}
+        <div className="bg-white p-6 rounded-2xl shadow-md">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">View History</h2>
+          <form onSubmit={handleSearch} className="flex items-center gap-2">
+            <input 
+              type="text" 
+              value={searchDeskId}
+              onChange={(e) => setSearchDeskId(e.target.value)}
+              placeholder="Enter Desk ID (e.g., D-2-15)" 
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
+            />
+            <button type="submit" className="bg-indigo-600 text-white p-2.5 rounded-lg shadow-sm hover:bg-indigo-700 flex items-center justify-center transition-colors">
+              <IconSearch />
             </button>
-          ))}
+          </form>
+          
+          {/* History Results Display */}
+          <div className="mt-6 space-y-4">
+            {isLoadingHistory && <p className="text-center text-gray-600">Loading history...</p>}
+            {historyError && <p className="text-center text-red-600 bg-red-50 p-3 rounded-lg">{historyError}</p>}
+            {history && (
+              <div className="border-t pt-4">
+                <h3 className="font-bold text-lg mb-2">History for <span className="text-indigo-600">{searchDeskId}</span></h3>
+                {history.map(commit => (
+                  <div key={commit.commitId} className="bg-gray-50 p-4 rounded-lg mb-3 border border-gray-200">
+                    <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-gray-800">{commit.message}</p>
+                          <p className="text-sm text-gray-500">by {commit.author.name} on {new Date(commit.timestamp).toLocaleDateString()}</p>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-400 font-mono">
+                          {commit.commitId.substring(0, 12)}...
+                          <CopyButton textToCopy={commit.commitId} />
+                        </div>
+                    </div>
+                    <div className="mt-2 text-sm bg-white p-2 rounded border">
+                      <p><span className="font-semibold">Field:</span> {commit.changes[0].field}</p>
+                      <p><span className="font-semibold text-red-600">Old:</span> {JSON.stringify(commit.changes[0].oldValue) || 'none'}</p>
+                      <p><span className="font-semibold text-green-600">New:</span> {JSON.stringify(commit.changes[0].newValue) || 'none'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* History & Revert Card */}
+      {/* Revert Section Card */}
       <div className="bg-white p-6 rounded-2xl shadow-md">
-         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* History Search Section */}
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <IconRotateCcw /> Revert to a Commit
+        </h2>
+        <p className="text-sm text-gray-600 mb-4">
+            Use the history search to find the Commit ID you want to revert to. This will restore the desk's state to that specific version.
+        </p>
+        <form onSubmit={handleRevert} className="space-y-4">
             <div>
-               <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">View History</h2>
-               <form onSubmit={handleSearch} className="flex items-center gap-2">
-                  <input 
-                    type="text" 
-                    value={searchDeskId}
-                    onChange={(e) => setSearchDeskId(e.target.value)}
-                    placeholder="Enter Desk ID (e.g., D-2-15)" 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
-                  />
-                  <button type="submit" className="bg-indigo-600 text-white p-2.5 rounded-lg shadow-sm hover:bg-indigo-700 flex items-center justify-center transition-colors">
-                    <IconSearch />
-                  </button>
-               </form>
-               
-                {/* History Results Display */}
-                <div className="mt-6 space-y-4">
-                  {isLoading && <p className="text-center text-gray-600">Loading history...</p>}
-                  {error && <p className="text-center text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
-                  {history && (
-                    <div className="border-t pt-4">
-                      <h3 className="font-bold text-lg mb-2">History for <span className="text-indigo-600">{searchDeskId}</span></h3>
-                      {history.map(commit => (
-                        <div key={commit.commitId} className="bg-gray-50 p-4 rounded-lg mb-3 border border-gray-200">
-                          <div className="flex justify-between items-start">
-                             <div>
-                                <p className="font-semibold text-gray-800">{commit.message}</p>
-                                <p className="text-sm text-gray-500">by {commit.author.name} on {new Date(commit.timestamp).toLocaleDateString()}</p>
-                             </div>
-                             <div className="flex items-center gap-2 text-xs text-gray-400 font-mono">
-                                {commit.commitId.substring(0, 12)}...
-                                <CopyButton textToCopy={commit.commitId} />
-                             </div>
-                          </div>
-                          <div className="mt-2 text-sm bg-white p-2 rounded border">
-                            <p><span className="font-semibold">Field:</span> {commit.changes[0].field}</p>
-                            <p><span className="font-semibold text-red-600">Old:</span> {JSON.stringify(commit.changes[0].oldValue) || 'none'}</p>
-                            <p><span className="font-semibold text-green-600">New:</span> {JSON.stringify(commit.changes[0].newValue) || 'none'}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <label htmlFor="revertDeskId" className="block text-sm font-medium text-gray-700 mb-1">Desk ID</label>
+                <input
+                    id="revertDeskId"
+                    type="text"
+                    value={revertDeskId}
+                    onChange={e => setRevertDeskId(e.target.value)}
+                    placeholder="Desk ID to revert (e.g., D-1-4)"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-amber-500 focus:border-amber-500 transition-shadow"
+                />
             </div>
-            
-            {/* Revert Section */}
-            <div className="border-t lg:border-t-0 lg:border-l lg:pl-8 pt-8 lg:pt-0">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <IconRotateCcw /> Revert to a Commit
-                </h2>
-                <p className="text-sm text-gray-600 mb-4">
-                    Use the history search to find the Commit ID you want to revert to. This will restore the desk's state to that specific version.
-                </p>
-                <form onSubmit={handleRevert} className="space-y-4">
-                    <div>
-                        <label htmlFor="revertDeskId" className="block text-sm font-medium text-gray-700 mb-1">Desk ID</label>
-                        <input
-                            id="revertDeskId"
-                            type="text"
-                            value={revertDeskId}
-                            onChange={e => setRevertDeskId(e.target.value)}
-                            placeholder="Desk ID to revert (e.g., D-1-4)"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-amber-500 focus:border-amber-500 transition-shadow"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="revertCommitId" className="block text-sm font-medium text-gray-700 mb-1">Commit ID</label>
-                        <input
-                            id="revertCommitId"
-                            type="text"
-                            value={revertCommitId}
-                            onChange={e => setRevertCommitId(e.target.value)}
-                            placeholder="Paste the Commit ID here"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-amber-500 focus:border-amber-500 transition-shadow"
-                        />
-                    </div>
-                    <button type="submit" className="w-full bg-amber-500 text-white font-bold py-2.5 rounded-lg shadow-sm hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">
-                        Revert Desk
-                    </button>
-                </form>
+            <div>
+                <label htmlFor="revertCommitId" className="block text-sm font-medium text-gray-700 mb-1">Commit ID</label>
+                <input
+                    id="revertCommitId"
+                    type="text"
+                    value={revertCommitId}
+                    onChange={e => setRevertCommitId(e.target.value)}
+                    placeholder="Paste the Commit ID here"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-amber-500 focus:border-amber-500 transition-shadow"
+                />
             </div>
-         </div>
+            <button type="submit" className="w-full bg-amber-500 text-white font-bold py-2.5 rounded-lg shadow-sm hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">
+                Revert Desk
+            </button>
+        </form>
       </div>
     </div>
   );
 };
-
-const FloorDesigner = ({ floorId, onBack }) => {
-  // This is a placeholder for the actual floor designing UI
-  return (
-    <div className="p-8">
-      <button onClick={onBack} className="mb-8 bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">
-        &larr; Back to Dashboard
-      </button>
-      <h1 className="text-4xl font-bold text-center text-gray-800">Floor {floorId} Designer</h1>
-      <p className="text-center text-gray-600 mt-2">This is where the floor layout and desk arrangement would be managed.</p>
-      
-      {/* Placeholder grid for desks */}
-      <div className="mt-10 grid grid-cols-8 gap-4 bg-white p-6 rounded-2xl shadow-lg">
-        {Array.from({ length: 32 }).map((_, i) => (
-          <div key={i} className="h-20 bg-indigo-100 border-2 border-dashed border-indigo-300 rounded-lg flex items-center justify-center text-indigo-500 font-mono">
-            Desk {i+1}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 
 export default function App() {
-  const [view, setView] = useState('dashboard'); // 'dashboard' or 'designer'
-  const [currentFloor, setCurrentFloor] = useState(null);
+  const [floors, setFloors] = useState([]);
+  const [isLoadingFloors, setIsLoadingFloors] = useState(true);
+  const [floorsError, setFloorsError] = useState(null);
 
-  const handleSelectFloor = (floorId) => {
-    setCurrentFloor(floorId);
-    setView('designer');
-  };
-
-  const handleBackToDashboard = () => {
-    setView('dashboard');
-    setCurrentFloor(null);
-  };
+  useEffect(() => {
+    const fetchFloors = async () => {
+      try {
+        const res = await fetch('http://localhost:3000/floor');
+        if (!res.ok) {
+          throw new Error('Could not fetch floor data.');
+        }
+        const data = await res.json();
+        setFloors(data);
+      } catch (err) {
+        setFloorsError(err.message);
+      } finally {
+        setIsLoadingFloors(false);
+      }
+    };
+    fetchFloors();
+  }, []); 
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -286,9 +369,9 @@ export default function App() {
         </div>
       </header>
       <main>
-        {view === 'dashboard' && <Dashboard onSelectFloor={handleSelectFloor} floors={MOCK_FLOORS} />}
-        {view === 'designer' && <FloorDesigner floorId={currentFloor} onBack={handleBackToDashboard} />}
+        <Dashboard floors={floors} isLoadingFloors={isLoadingFloors} floorsError={floorsError} />
       </main>
     </div>
   );
 }
+

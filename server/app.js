@@ -1,35 +1,40 @@
+import 'dotenv/config'; 
 import express from "express";
-const app = express();
 import mongoose from "mongoose";
 import cors from "cors";
 
-app.use(cors({
-  origin: "http://localhost:5173",
-}));
-app.use(express.json());
-
+import authRouter from './routes/auth.js';
 import floorRouter from "./routes/floor.js";
+import landingRouter from "./routes/landing.js";
+import cookieParser from 'cookie-parser';
+import { requireAuth } from './middleware/authMiddleware.js';
 
-const MONGO_URL = 'mongodb://127.0.0.1:27017/floor_management';
+const app = express();
+
+app.use(cookieParser());
+
+app.use(cors({
+  origin: "http://localhost:5173", 
+  credentials: true,
+}));
+app.use(express.json()); 
+
+const MONGO_URL = process.env.MONGO_URL;
 const PORT = 3000;
-main()
-.then(() => {
-    console.log("Connected to DB");
-})
-.catch((err) => {
-    console.log(err);
-});
 
-async function main() {
-  await mongoose.connect(MONGO_URL);
-}
+mongoose.connect(MONGO_URL)
+    .then(() => console.log("Connected to DB"))
+    .catch((err) => console.error("DB connection error:", err));
 
-app.get("/", (req, res) => {
-  res.send("Backend is running on localhost!");
-});
+app.use("/", authRouter);
+app.use("/", landingRouter);
 app.use("/floor", floorRouter);
+
+app.get("/check", (req, res) => {
+  res.send("Backend is healthy and running!");
+});
+
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
-

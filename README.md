@@ -1,1 +1,0 @@
-# Floor_management_system_prototype

@@ -7,8 +7,9 @@ const deskSchema = new mongoose.Schema({
 });
 
 const meetingRoomSchema = new mongoose.Schema({
-  roomId: String,
-  isOccupied: { type: Boolean, default: false },
+  name: { type: String, required: true }, 
+  capacity: { type: Number, required: true },
+  amenities: [{ type: String }],
 });
 
 const floorSchema = new mongoose.Schema({

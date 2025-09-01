@@ -3,12 +3,13 @@ const router = express.Router();
 import Floor from "../models/floor.js";
 import Version from "../models/version.js";
 import versioningService from "../services/versionService.js";
+import { requireAuth } from "../middleware/authMiddleware.js";
 const app = express();
-
 app.use(express.json());
 
+
 //get route
-router.get("/:floorId", async (req, res) => {
+router.get("/:floorId", requireAuth, async (req, res) => {
   const { floorId } = req.params;
   try {
     const floor = await Floor.findOne({ floorId: floorId });
@@ -24,7 +25,7 @@ router.get("/:floorId", async (req, res) => {
 });
 
 //update
-router.put("/:floorId/desks/:deskId", async (req, res) => {
+router.put("/:floorId/desks/:deskId", requireAuth, async (req, res) => {
   try {
     const { floorId, deskId } = req.params;
     const { employee, admin } = req.body;

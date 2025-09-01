@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
-const adminSchema = new Schema({
+const userSchema = new Schema({
     name: {
       type: String,
       required: true,
@@ -19,7 +19,9 @@ const adminSchema = new Schema({
     },
     role: {
       type: String,
-      enum: ["TeamAdmin", "Admin", "FacilityAdmin"],
+      enum: ["Admin", "Employee", "FacilityAdmin"],
       required: true
     }
-})
+});
+
+export default mongoose.model("User", userSchema);
