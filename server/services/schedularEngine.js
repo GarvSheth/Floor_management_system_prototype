@@ -1,84 +1,38 @@
-/**
- * schedulerEngine.js
- * * This file contains the core data structures and algorithms for finding and 
- * suggesting meeting rooms. It's designed to be a self-contained "engine"
- * that can be plugged into any backend framework.
- */
+import MeetingRoom from '../models/meetingRoom.js';
+import Booking from '../models/booking.js';
 
-class MeetingRoomScheduler {
-  constructor(rooms) {
-    this.roomsSortedByCapacity = [...rooms].sort((a, b) => a.capacity - b.capacity);
-    
-    this.bookings = []; 
-  }
+class SchedulerEngine {
+    async findAvailableRooms({ participants, startTime, endTime }) {
+        if (typeof participants !== "number" || participants <= 0) {
+            throw new Error("Participants must be a positive number.");
+        }
+        if (!startTime || !endTime) {
+            throw new Error("Start and end time are required.");
+        }
+        if (new Date(startTime) >= new Date(endTime)) {
+            throw new Error("End time must be after start time.");
+        }
+        console.log(`Finding rooms for ${participants} participants between ${startTime} - ${endTime}`);
 
-  _binarySearchLowerBound(targetCapacity) {
-    let low = 0;
-    let high = this.roomsSortedByCapacity.length;
-    while (low < high) {
-      const mid = Math.floor((low + high) / 2);
-      if (this.roomsSortedByCapacity[mid].capacity < targetCapacity) {
-        low = mid + 1;
-      } else {
-        high = mid;
-      }
+        // --- STEP 1: Find conflicting bookings ---
+        const conflictingBookings = await Booking.find({
+            startTime: { $lt: endTime }, 
+            endTime: { $gt: startTime },
+        }).select("roomId");
+
+        const unavailableRoomIds = new Set(
+            conflictingBookings.map((b) => b.roomId.toString())
+        );
+
+        // --- STEP 2: Get candidate rooms (capacity >= participants, not in unavailable list) ---
+        const availableRooms = await MeetingRoom.find({
+            capacity: { $gte: participants },
+            _id: { $nin: Array.from(unavailableRoomIds) },
+        }).sort({ capacity: 1 });
+
+        console.log(`Found ${availableRooms.length} available rooms.`);
+        return availableRooms;
     }
-    return low;
-  }
-
-  suggestBestRooms(startTime, endTime, participants, options = {}) {
-    const unavailableRoomIds = new Set();
-    for (const booking of this.bookings) {
-      if (booking.startTime < endTime && booking.endTime > startTime) {
-        unavailableRoomIds.add(booking.roomId);
-      }
-    }
-
-    const firstSuitableRoomIndex = this._binarySearchLowerBound(participants);
-    if (firstSuitableRoomIndex === this.roomsSortedByCapacity.length) {
-      return [];
-    }
-
-    const availableRooms = [];
-    for (let i = firstSuitableRoomIndex; i < this.roomsSortedByCapacity.length; i++) {
-      const room = this.roomsSortedByCapacity[i];
-      if (!unavailableRoomIds.has(room.id)) {
-        const score = this._calculateScore(room, participants, options);
-        availableRooms.push({ ...room, score });
-      }
-    }
-
-    return availableRooms.sort((a, b) => b.score - a.score);
-  }
-
-  _calculateScore(room, participants, options) {
-    let score = 0;
-    const capacityDifference = room.capacity - participants;
-    score += 100 / (capacityDifference + 1);
-    if (options.userFloor && room.floor === options.userFloor) {
-      score += 50;
-    }
-    return score;
-  }
-
-  bookRoom(roomId, userId, startTime, endTime, participants) {
-    const roomExists = this.roomsSortedByCapacity.some(r => r.id === roomId);
-    if (!roomExists) {
-      throw new Error("Room not found");
-    }
-
-    const newBooking = {
-      id: this.bookings.length + 1,
-      roomId,
-      userId,
-      startTime,
-      endTime,
-      participants
-    };
-    this.bookings.push(newBooking);
-    console.log('New booking added:', newBooking);
-    return newBooking;
-  }
 }
 
-export default MeetingRoomScheduler;
+export const scheduler = new SchedulerEngine();

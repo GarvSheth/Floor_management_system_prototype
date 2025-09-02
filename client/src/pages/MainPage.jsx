@@ -53,11 +53,6 @@ const CopyButton = ({ textToCopy }) => {
 
 // --- Main Application Components ---
 
-/**
- * Formats a Date object into a string suitable for a time input value.
- * @param {Date} date The date to format.
- * @returns {string} A string in HH:mm format.
- */
 const getFormattedTime = (date) => {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
@@ -66,93 +61,99 @@ const getFormattedTime = (date) => {
 
 
 const QuickBooker = () => {
-    const now = new Date();
-    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+  const now = new Date();
+  const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
 
-    const [details, setDetails] = useState({
-        participants: 4,
-        startTime: getFormattedTime(now),
-        endTime: getFormattedTime(oneHourLater),
-    });
-    const [isLoading, setIsLoading] = useState(false);
-    const [result, setResult] = useState({ message: '', isError: false });
+  const [details, setDetails] = useState({
+    participants: 4,
+    startTime: getFormattedTime(now),
+    endTime: getFormattedTime(oneHourLater),
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState({ message: '', isError: false });
 
-    const handleChange = (e) => {
-        setDetails({ ...details, [e.target.name]: e.target.value });
-    };
+  const handleChange = (e) => {
+    setDetails({ ...details, [e.target.name]: e.target.value });
+  };
 
-    const handleAutoBook = async (e) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setResult({ message: '', isError: false });
+  const handleAutoBook = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setResult({ message: '', isError: false });
 
-        const today = new Date().toISOString().split('T')[0];
-        const startDateTime = new Date(`${today}T${details.startTime}`);
-        const endDateTime = new Date(`${today}T${details.endTime}`);
-        
-        if (startDateTime >= endDateTime) {
-            setResult({ message: 'Error: End time must be after start time.', isError: true });
-            setIsLoading(false);
-            return;
-        }
+    const today = new Date().toISOString().split('T')[0];
+    const startDateTime = new Date(`${today}T${details.startTime}`);
+    const endDateTime = new Date(`${today}T${details.endTime}`);
+    
+    if (startDateTime >= endDateTime) {
+      setResult({ message: 'Error: End time must be after start time.', isError: true });
+      setIsLoading(false);
+      return;
+    }
 
-        try {
-            const params = new URLSearchParams({
-                startTime: startDateTime.toISOString(),
-                endTime: endDateTime.toISOString(),
-                participants: parseInt(details.participants, 10),
-                userId: 'admin', 
-            });
+    try {
+      const params = new URLSearchParams({
+        startTime: startDateTime.toISOString(),
+        endTime: endDateTime.toISOString(),
+        participants: parseInt(details.participants, 10), 
+        userId: 'admin', 
+      });
 
-            // Make a single GET request to the new auto-booking endpoint
-            const res = await fetch(`http://localhost:3000/auto-book-best-room?${params.toString()}`);
+      const res = await fetch(`http://localhost:3000/room/suggest?${params.toString()}`);
+      const data = await res.json();
+      console.log(data);
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to auto-book a room.');
+      }
 
-            const data = await res.json();
-            
-            if (!res.ok) {
-                throw new Error(data.message || 'Failed to auto-book a room.');
-            }
+      const saveData = {
+        rooms: data,           
+        startTime: startDateTime.toISOString(),
+        endTime: endDateTime.toISOString()
+      };
+      
+      console.log(saveData.rooms);
+      localStorage.setItem('suggestMeetingRoomData', JSON.stringify(saveData));
+      window.location.href = `/suggestMeetingRoom`;
 
-            setResult({ message: data.message, isError: false });
+    } catch (err) {
+      setResult({ message: err.message, isError: true });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        } catch (err) {
-            setResult({ message: err.message, isError: true });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <div className="bg-white p-6 rounded-2xl shadow-md h-full">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <IconCalendar /> Quick Book a Meeting Room for Today
-            </h2>
-            <form onSubmit={handleAutoBook} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label htmlFor="participants" className="block text-sm font-medium text-gray-700 mb-1">Participants</label>
-                        <input type="number" name="participants" value={details.participants} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" min="1"/>
-                    </div>
-                    <div>
-                        <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-                        <input type="time" name="startTime" value={details.startTime} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
-                    </div>
-                     <div>
-                        <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-                        <input type="time" name="endTime" value={details.endTime} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
-                    </div>
-                </div>
-                <button type="submit" disabled={isLoading} className="w-full bg-green-600 text-white font-bold py-2.5 rounded-lg shadow-sm hover:bg-green-700 disabled:bg-green-300 transition-colors">
-                    {isLoading ? 'Booking...' : 'Find & Book Best Room'}
-                </button>
-                {result.message && (
-                    <div className={`text-center p-3 rounded-lg mt-4 ${result.isError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-800'}`}>
-                        {result.message}
-                    </div>
-                )}
-            </form>
+  return (
+    <div className="bg-white p-6 rounded-2xl shadow-md h-full">
+      <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+        <IconCalendar /> Quick Book a Meeting Room for Today
+      </h2>
+      <form onSubmit={handleAutoBook} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label htmlFor="participants" className="block text-sm font-medium text-gray-700 mb-1">Participants</label>
+            <input type="number" name="participants" value={details.participants} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" min="1"/>
+          </div>
+          <div>
+            <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+            <input type="time" name="startTime" value={details.startTime} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
+          </div>
+           <div>
+            <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+            <input type="time" name="endTime" value={details.endTime} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
+          </div>
         </div>
-    );
+        <button type="submit" disabled={isLoading} className="w-full bg-green-600 text-white font-bold py-2.5 rounded-lg shadow-sm hover:bg-green-700 disabled:bg-green-300 transition-colors">
+          Suggest Meeting Room
+        </button>
+        {result.message && (
+          <div className={`text-center p-3 rounded-lg mt-4 ${result.isError ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-800'}`}>
+            {result.message}
+          </div>
+        )}
+      </form>
+    </div>
+  );
 };
 
 

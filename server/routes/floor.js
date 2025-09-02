@@ -1,6 +1,7 @@
 import express from "express";
 const router = express.Router();
 import Floor from "../models/floor.js";
+import Room from "../models/meetingRoom.js";
 import Version from "../models/version.js";
 import versioningService from "../services/versionService.js";
 import { requireAuth } from "../middleware/authMiddleware.js";
@@ -8,23 +9,36 @@ const app = express();
 app.use(express.json());
 
 
-//get route
+// get route for specific floor with meeting rooms merged
 router.get("/:floorId", requireAuth, async (req, res) => {
   const { floorId } = req.params;
+
   try {
     const floor = await Floor.findOne({ floorId: floorId });
-
     if (!floor) {
       return res.status(404).json({ message: "Floor not found" });
     }
 
-    res.json(floor);
+    const meetingRooms = await Room.find({ floor: floorId }).lean(); 
+
+    const mergedData = {
+      floorId: floor.floorId,
+      desks: floor.desks,
+      meetingRooms: meetingRooms.map((room) => ({
+        roomId: room.name,
+        capacity: room.capacity,
+        isOccupied: true ? room.status === "Occupied" : false,
+      })),
+    };
+
+    res.json(mergedData);
   } catch (err) {
+    console.error("Error fetching floor data:", err);
     res.status(500).json({ message: err.message });
   }
 });
 
-//update
+//update the desks
 router.put("/:floorId/desks/:deskId", requireAuth, async (req, res) => {
   try {
     const { floorId, deskId } = req.params;

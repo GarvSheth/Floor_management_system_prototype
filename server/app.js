@@ -6,6 +6,7 @@ import cors from "cors";
 import authRouter from './routes/auth.js';
 import floorRouter from "./routes/floor.js";
 import landingRouter from "./routes/landing.js";
+import meetingRoomRouter from './routes/meetingRoom.js';
 import cookieParser from 'cookie-parser';
 import { requireAuth } from './middleware/authMiddleware.js';
 
@@ -29,6 +30,7 @@ mongoose.connect(MONGO_URL)
 app.use("/", authRouter);
 app.use("/", landingRouter);
 app.use("/floor", floorRouter);
+app.use("/room", meetingRoomRouter);
 
 app.get("/check", (req, res) => {
   res.send("Backend is healthy and running!");

@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import { OAuth2Client } from 'google-auth-library'; // <-- install this
+import { OAuth2Client } from 'google-auth-library'; 
 import User from '../models/user.js';
 
 const router = express.Router();
@@ -29,13 +29,13 @@ router.post('/login', async (req, res) => {
       user = new User({
         name,
         email,
-        password: "google-oauth",   // placeholder since they never log in with password
-        role: "Employee",           // default role
+        password: "google-oauth",   
+        role: "Employee",           
       });
       await user.save();
     }
 
-    // Create your own JWT for session
+    //create JWT token
     const tokenPayload = {
       userId: user._id,
       email: user.email,
