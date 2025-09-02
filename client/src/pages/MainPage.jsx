@@ -195,38 +195,40 @@ const Dashboard = ({ floors, isLoadingFloors, floorsError }) => {
   };
   
   const handleRevert = async (e) => {
-      e.preventDefault();
-      if (!revertDeskId || !revertCommitId) {
-          alert("Please provide both a Desk ID and a Commit ID to revert.");
-          return;
+  e.preventDefault();
+
+  const deskId = localStorage.getItem('deskHistoryDeskId'); 
+  if (!deskId || !revertCommitId) {
+    alert("Please search a desk first and provide a Commit ID to revert.");
+    return;
+  }
+
+  const isConfirmed = true; 
+
+  if (isConfirmed) {
+    try {
+      const res = await fetch('http://localhost:3000/history/rollback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deskId,
+          commitId: revertCommitId,
+          admin: { id: 'admin-ui', name: 'Admin UI User' }
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Failed to revert');
       }
-      
-      // Replaced window.confirm with a simple confirmation for compatibility
-      const isConfirmed = true; 
-      
-      if(isConfirmed) {
-          try {
-            const res = await fetch('http://localhost:3001/api/revert', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    deskId: revertDeskId,
-                    commitId: revertCommitId,
-                    admin: { id: 'admin-ui', name: 'Admin UI User' }
-                })
-            });
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.message || 'Failed to revert');
-            }
-            alert(`Revert action for ${revertDeskId} has been successful.`);
-            setRevertDeskId("");
-            setRevertCommitId("");
-          } catch(err) {
-              alert(`Revert failed: ${err.message}`);
-          }
-      }
-  };
+
+      alert(`Revert action for ${deskId} has been successful.`);
+      setRevertCommitId(""); // reset only commit input
+    } catch (err) {
+      alert(`Revert failed: ${err.message}`);
+    }
+  }
+};
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-8">
@@ -311,17 +313,6 @@ const Dashboard = ({ floors, isLoadingFloors, floorsError }) => {
             Use the history search to find the Commit ID you want to revert to. This will restore the desk's state to that specific version.
         </p>
         <form onSubmit={handleRevert} className="space-y-4">
-            <div>
-                <label htmlFor="revertDeskId" className="block text-sm font-medium text-gray-700 mb-1">Desk ID</label>
-                <input
-                    id="revertDeskId"
-                    type="text"
-                    value={revertDeskId}
-                    onChange={e => setRevertDeskId(e.target.value)}
-                    placeholder="Desk ID to revert (e.g., D-1-4)"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-amber-500 focus:border-amber-500 transition-shadow"
-                />
-            </div>
             <div>
                 <label htmlFor="revertCommitId" className="block text-sm font-medium text-gray-700 mb-1">Commit ID</label>
                 <input

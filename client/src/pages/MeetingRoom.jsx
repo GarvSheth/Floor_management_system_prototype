@@ -38,7 +38,7 @@ const MeetingRoom = () => {
         body: JSON.stringify({
           roomId: room._id,
           userId: "admin",
-          startTime, // use the times from localStorage
+          startTime,
           endTime,
           numberOfParticipants: room.capacity,
         }),
@@ -47,7 +47,6 @@ const MeetingRoom = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to book the room.");
 
-      // Update the room status locally
       setRooms((prevRooms) =>
         prevRooms.map((r) =>
           r._id === room._id ? { ...r, status: "Occupied" } : r
@@ -108,6 +107,9 @@ const MeetingRoom = () => {
                     <h2 className="text-lg font-semibold text-gray-800">
                       {room.name || "Meeting Room"}
                     </h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Floor: <span className="font-semibold">{room.floor || "N/A"}</span>
+                    </p>
                     <p className="text-sm text-gray-500 mt-1">
                       Capacity: {room.capacity || "N/A"} people
                     </p>
