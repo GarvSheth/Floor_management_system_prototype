@@ -3,13 +3,20 @@ import { useParams } from "react-router-dom";
 
 // --- SVG Icons ---
 const BackArrowIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 12H5"/>
+    <path d="m12 19-7-7 7-7"/>
+  </svg>
 );
 const UserIcon = () => (
-  <svg className="w-6 h-6 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+  <svg className="w-6 h-6 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+  </svg>
 );
 const PlusIcon = () => (
-  <svg className="w-6 h-6 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+  <svg className="w-6 h-6 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+  </svg>
 );
 
 const FloorPage = () => {
@@ -27,7 +34,7 @@ const FloorPage = () => {
     setFloorData({
       floorId: data.floorId,
       desks: data.desks || [],
-      meetingRooms: data.meetingRooms || [],
+      meetingRooms: floorData ? floorData.meetingRooms : (data.meetingRooms || []), // Keep existing meeting rooms
     });
   };
 
@@ -37,7 +44,11 @@ const FloorPage = () => {
         const res = await fetch(`http://localhost:3000/floor/${floorId}`);
         if (!res.ok) throw new Error("Failed to fetch floor data");
         const data = await res.json();
-        updateFloorState(data);
+        setFloorData({
+          floorId: data.floorId,
+          desks: data.desks || [],
+          meetingRooms: data.meetingRooms || [],
+        });
       } catch (err) {
         console.error("Error fetching floor data:", err);
       }
@@ -76,13 +87,20 @@ const FloorPage = () => {
         `http://localhost:3000/floor/${floorId}/desks/${selectedDesk.deskId}`,
         {
           method: "PUT",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ employee: employeeName, admin: "AdminUser" }),
         }
       );
       if (!res.ok) throw new Error("Failed to assign desk");
       const updatedData = await res.json();
-      updateFloorState(updatedData.floor);
+
+      // Only update desks, keep existing meetingRooms
+      setFloorData(prev => ({
+        ...prev,
+        desks: updatedData.floor.desks
+      }));
+
       handleCloseModal();
     } catch (err) {
       console.error(err);
@@ -102,7 +120,13 @@ const FloorPage = () => {
       );
       if (!res.ok) throw new Error("Failed to unassign desk");
       const updatedData = await res.json();
-      updateFloorState(updatedData.floor);
+
+      // Only update desks, keep existing meetingRooms
+      setFloorData(prev => ({
+        ...prev,
+        desks: updatedData.floor.desks
+      }));
+
       handleCloseModal();
     } catch (err) {
       console.error(err);

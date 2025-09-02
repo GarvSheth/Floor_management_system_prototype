@@ -23,12 +23,7 @@ async function seedDatabase() {
         desks.push({ deskId: `D-${f}-${d}`, status: "Available", employee: null });
       }
 
-      // 3 meeting rooms per floor
-      for (let r = 1; r <= 3; r++) {
-        meetingRooms.push({ roomId: `R-${f}-${r}`, isOccupied: false });
-      }
-
-      floors.push(new Floor({ floorId: f, desks, meetingRooms }));
+      floors.push(new Floor({ floorId: f, desks }));
     }
 
     await Floor.insertMany(floors);

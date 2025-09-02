@@ -19,11 +19,6 @@ class VersioningService {
     this.DeskCommit = indexModel;
   }
 
-  /**
-   * Finds the most recent commit ID for a specific desk.
-   * @param {string} deskId - The ID of the entity (desk) to find the last commit for.
-   * @returns {Promise<string|null>} The commitId of the last commit for the given desk.
-   */
   async _findLastCommitIdForDesk(deskId) {
     if (!deskId) return null;
     try {
@@ -37,9 +32,6 @@ class VersioningService {
     }
   }
 
-  /**
-   * Loops through all changes and updates the index for each unique deskId.
-   */
   async _updateDeskIndex(changes, newCommitId) {
     if (!changes || changes.length === 0) {
       console.error("Attempted to update index with no changes.");
@@ -65,11 +57,6 @@ class VersioningService {
     }
   }
 
-  /**
-   * Creates a new commit, saves it, and updates the lookup index.
-   * @param {object} commitData - The raw data for the commit.
-   * @returns {Promise<object>} The saved commit document.
-   */
   async createCommit(commitData) {
     // 1. Get the deskId from the changes. We'll assume one commit affects one desk.
     // A more complex system might handle multiple, but this is a safe assumption.

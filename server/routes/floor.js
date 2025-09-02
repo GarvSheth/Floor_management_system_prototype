@@ -43,7 +43,6 @@ router.put("/:floorId/desks/:deskId", requireAuth, async (req, res) => {
   try {
     const { floorId, deskId } = req.params;
     const { employee, admin } = req.body;
-    console.log(employee);
 
     const floor = await Floor.findOne({ floorId: floorId }); 
     if (!floor) return res.status(404).json({ error: "Floor not found" });

@@ -112,7 +112,6 @@ const QuickBooker = () => {
         endTime: endDateTime.toISOString()
       };
       
-      console.log(saveData.rooms);
       localStorage.setItem('suggestMeetingRoomData', JSON.stringify(saveData));
       window.location.href = `/suggestMeetingRoom`;
 
@@ -169,19 +168,25 @@ const Dashboard = ({ floors, isLoadingFloors, floorsError }) => {
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchDeskId) return;
-    
+
     setIsLoadingHistory(true);
     setHistoryError(null);
     setHistory(null);
-    
+
     try {
-      const res = await fetch(`http://localhost:3001/api/history/${searchDeskId}`);
+      const res = await fetch(`http://localhost:3000/history/${searchDeskId}`);
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.message || 'Failed to fetch history');
       }
       const data = await res.json();
-      setHistory(data);
+
+      // Store history in localStorage
+      localStorage.setItem('deskHistory', JSON.stringify(data.history || []));
+      localStorage.setItem('deskHistoryDeskId', searchDeskId);
+
+      // Redirect to history page
+      window.location.href = `/history`;
     } catch (err) {
       setHistoryError(err.message);
     } finally {

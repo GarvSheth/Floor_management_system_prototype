@@ -7,6 +7,7 @@ import authRouter from './routes/auth.js';
 import floorRouter from "./routes/floor.js";
 import landingRouter from "./routes/landing.js";
 import meetingRoomRouter from './routes/meetingRoom.js';
+import historyRouter from './routes/history.js';
 import cookieParser from 'cookie-parser';
 import { requireAuth } from './middleware/authMiddleware.js';
 
@@ -31,6 +32,7 @@ app.use("/", authRouter);
 app.use("/", landingRouter);
 app.use("/floor", floorRouter);
 app.use("/room", meetingRoomRouter);
+app.use("/history", historyRouter);
 
 app.get("/check", (req, res) => {
   res.send("Backend is healthy and running!");
